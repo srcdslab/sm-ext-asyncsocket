@@ -1,0 +1,41 @@
+# vim: set sts=2 ts=8 sw=2 tw=99 et ft=python:
+import os
+
+projectName = 'AsyncSocket'
+
+project = builder.LibraryProject(projectName)
+project.sources += [
+  os.path.join(Extension.ext_root, 'src', 'extension.cpp'),
+  os.path.join(Extension.ext_root, 'src', 'context.cpp'),
+  os.path.join(Extension.sm_root, 'public', 'smsdk_ext.cpp')
+]
+
+for sdk_name in Extension.sdks:
+  sdk = Extension.sdks[sdk_name]
+  if sdk['name'] in ['mock']:
+    continue
+
+  for cxx in builder.targets:
+    if not cxx.target.arch in sdk['platforms'][cxx.target.platform]:
+      continue
+
+    binary = Extension.HL2ExtConfig(project, builder, cxx, projectName + '.ext', sdk)
+
+    if cxx.target.platform == 'windows':
+      binary.compiler.linkflags += ['ws2_32.lib']
+
+    libuv_root = os.path.join(Extension.ext_root, 'libuv')
+    binary.compiler.cxxincludes += [
+      os.path.join(libuv_root, 'include'),
+    ]
+
+    # TODO: add proper linux support for x64
+    if cxx.target.arch in ['x86'] and cxx.target.platform in ['linux']:
+      binary.compiler.linkflags += [
+        os.path.join(libuv_root, '.libs', 'libuv.a'),
+      ]
+    # TODO: add proper windows support for libuv
+    if cxx.target.platform in ['windows']:
+      binary.compiler.linkflags += ['/FORCE:UNRESOLVED']
+
+Extension.extensions += builder.Add(project)

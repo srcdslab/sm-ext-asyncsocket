@@ -1,2 +1,8 @@
-extension/msvc*/*
-build/*
+build
+Containerfile
+.venv
+safetyhook
+libuv
+ambuild
+*.env
+*.ps1

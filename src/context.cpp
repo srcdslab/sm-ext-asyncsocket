@@ -95,7 +95,7 @@ bool CAsyncSocketContext::SetConnectCallback(funcid_t function)
 
 bool CAsyncSocketContext::SetErrorCallback(funcid_t function)
 {
-	if(m_pConnectCallback)
+	if(m_pErrorCallback)
 		forwards->ReleaseForward(m_pErrorCallback);
 
 	m_pErrorCallback = forwards->CreateForwardEx(NULL, ET_Single, 3, NULL, Param_Cell, Param_Cell, Param_String);

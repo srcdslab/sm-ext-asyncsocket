@@ -1,132 +1,72 @@
-name: CI
+name: Build AlliedModders Extension
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - master
+      - main
 
 jobs:
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04]
-        sourcemod-version: [1.11-dev]
-        libuv-version: [v1.44.2]
-        include:
-          - os: ubuntu-20.04
-            target-archs: x86,x86_64
-            sdks: sdk2013
-
+  build-libuv:
+    runs-on: ubuntu-20.04
+    env:
+      LIBUV_REF: 'v1.44.2'
+      CC: "clang-10"
+      CXX: "clang++-10"
     steps:
-      - name: Install Linux packages
-        if: runner.os == 'Linux'
+      - name: Install Linux dependencies
+        shell: bash
+        if: startsWith(runner.os, 'Linux')
         run: |
-          sudo apt update
-          sudo apt install -yq --no-install-recommends g++-multilib
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-multilib g++-multilib libstdc++6 lib32stdc++6 \
+            libc6-dev libc6-dev-i386 linux-libc-dev \
+            linux-libc-dev:i386 lib32z1-dev ${{ env.CC }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          path: extension
-
-      - name: Checkout SourceMod
-        uses: actions/checkout@v2
-        with:
-          repository: alliedmodders/sourcemod
-          ref: ${{ matrix.sourcemod-version }}
-          path: sourcemod
-          submodules: recursive
-
-      - name: Checkout AMBuild
-        uses: actions/checkout@v2
-        with:
-          repository: alliedmodders/ambuild
-          path: ambuild
-
-      - name: Checkout sm-ext-common
-        uses: actions/checkout@v2
-        with:
-          repository: srcdslab/sm-ext-common
-          path: sourcemod/extensions/sm-ext-common
+      - name: Select compiler
+        shell: bash
+        if: startsWith(runner.os, 'Linux')
+        run: |
+          echo "CC=${{ env.CC }}" >> $GITHUB_ENV
+          echo "CXX=${{ env.CXX }}" >> $GITHUB_ENV
+          ${{ env.CC }} --version
+          ${{ env.CXX }} --version
 
       - name: Checkout libuv
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: libuv/libuv
-          ref: ${{ matrix.libuv-version }}
+          ref: ${{ env.LIBUV_REF }}
           path: libuv
           submodules: recursive
 
-      - name: Install sourcemod dependencies
-        run: |
-          bash sourcemod/tools/checkout-deps.sh -m -s ${{ matrix.sdks }}
-
-      - name: Install AMBuild
-        uses: BSFishy/pip-action@v1
-        with:
-          packages: ./ambuild
-
       - name: Build libuv
+        working-directory: libuv
         run: |
-          cd libuv
-          sh autogen.sh
+          bash autogen.sh
           ./configure --build=i686-pc-linux-gnu "CFLAGS=-m32" "CXXFLAGS=-m32" "LDFLAGS=-m32" --disable-shared --enable-static
           make -j 8
 
-      - name: Build
-        working-directory: extension
-        shell: bash
-        env:
-          BREAKPAD_SYMBOL_SERVER: ${{ secrets.BREAKPAD_SYMBOL_SERVER }}
-        run: |
-          mkdir build && cd build
-          python ../configure.py --enable-optimize --targets=${{ matrix.target-archs }} --sdks=${{ matrix.sdks }}
-          ambuild
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
+      - name: Upload libuv
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}
-          path: extension/build/package
+          name: libuv
+          include-hidden-files: true
+          path: libuv
+          if-no-files-found: error
+          retention-days: 1
 
-
-  release:
-    name: Release
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-
-      - name: Package
-        run: |
-          version=`echo $GITHUB_REF | sed "s/refs\/tags\///"`
-          ls -Rall
-          if [ -d "./Linux/" ]; then
-            cd ./Linux/
-            tar -czf ../${{ github.event.repository.name }}-${version}-linux.tar.gz -T <(\ls -1)
-            cd -
-          fi
-          if [ -d "./macOS/" ]; then
-            cd ./macOS/
-            tar -czf ../${{ github.event.repository.name }}-${version}-mac.tar.gz -T <(\ls -1)
-            cd -
-          fi
-          if [ -d "./Windows/" ]; then
-            cd ./Windows/
-            tar -czf ../${{ github.event.repository.name }}-${version}-windows.tar.gz -T <(\ls -1)
-            cd -
-          fi
-
-      - name: Release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: '*.tar.gz'
-          tag: ${{ github.ref }}
-          file_glob: true
+  build-release-extension:
+    uses: srcdslab/ci-workflows/.github/workflows/shared_build_release_am_extension.yml@v1
+    needs: build-libuv
+    with:
+      sdks: "sdk2013"
+      artifact-path: "."

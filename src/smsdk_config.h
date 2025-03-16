@@ -37,10 +37,12 @@
  * @brief Contains macros for configuring basic extension information.
  */
 
+#include "version.h"
+
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"Async Socket Extension"
 #define SMEXT_CONF_DESCRIPTION	"Async TCP server and client"
-#define SMEXT_CONF_VERSION		"1.0"
+#define SMEXT_CONF_VERSION		SM_FULL_VERSION
 #define SMEXT_CONF_AUTHOR		"Nikki + BotoX"
 #define SMEXT_CONF_URL			"https://github.com/CSSZombieEscape/sm-ext-AsyncSocket"
 #define SMEXT_CONF_LOGTAG		"ASYNCSOCKET"
