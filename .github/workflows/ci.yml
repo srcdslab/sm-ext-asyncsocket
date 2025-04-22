@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       LIBUV_REF: 'v1.44.2'
-      CC: "clang-10"
-      CXX: "clang++-10"
+      CC: "clang-14"
+      CXX: "clang++-14"
     steps:
       - name: Install Linux dependencies
         shell: bash
