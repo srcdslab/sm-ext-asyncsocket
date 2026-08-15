@@ -20,7 +20,7 @@ methodmap AsyncSocket < Handle {
 
 	public bool WriteNull(const char[] data)
 	{
-		this.Write(data, strlen(data) + 1);
+		return this.Write(data, strlen(data) + 1);
 	}
 
 	public native bool SetConnectCallback(AsyncSocketConnectCallback callback);
