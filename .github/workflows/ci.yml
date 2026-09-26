@@ -15,60 +15,79 @@ on:
 jobs:
   build-libuv-linux:
     runs-on: ubuntu-24.04
-    env:
-      CC: "clang-14"
-      CXX: "clang++-14"
+    strategy:
+      matrix:
+        arch: [x86, x64]
     steps:
       - name: Checkout repository with submodules
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Install Linux dependencies
+      - name: Install Linux dependencies (x86)
+        if: matrix.arch == 'x86'
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             gcc-multilib g++-multilib libstdc++6 lib32stdc++6 \
             libc6-dev libc6-dev-i386 linux-libc-dev \
-            linux-libc-dev:i386 lib32z1-dev ${{ env.CC }}
+            linux-libc-dev:i386 lib32z1-dev clang
 
-      - name: Build and install libuv (Linux x86)
+      - name: Install Linux dependencies (x64)
+        if: matrix.arch == 'x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libtool autoconf automake clang
+
+      - name: Build and install libuv (Linux ${{ matrix.arch }})
         working-directory: libuv
         run: |
-          bash autogen.sh
-          ./configure --prefix="$(pwd)/dist" --build=i686-pc-linux-gnu "CFLAGS=-m32" "CXXFLAGS=-m32" "LDFLAGS=-m32" --disable-shared --enable-static
+          ./autogen.sh
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            ./configure --prefix="$(pwd)/dist" --build=i686-pc-linux-gnu "CFLAGS=-m32" "CXXFLAGS=-m32" "LDFLAGS=-m32" --disable-shared --enable-static
+          else
+            ./configure --prefix="$(pwd)/dist" "CFLAGS=-fPIC" "CXXFLAGS=-fPIC" --disable-shared --enable-static
+          fi
           make -j8
           make install
 
       - name: Upload libuv Linux Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libuv-linux
+          name: libuv-linux-${{ matrix.arch }}
           path: libuv/dist
           retention-days: 1
 
   build-libuv-windows:
     runs-on: windows-2022
+    strategy:
+      matrix:
+        arch: [x86, x64]
     steps:
       - name: Checkout repository with submodules
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Build and install libuv (Windows x86)
+      - name: Build and install libuv (Windows ${{ matrix.arch }})
         shell: cmd
         working-directory: libuv
         run: |
           mkdir build
           cd build
-          cmake .. -A Win32 -DBUILD_TESTING=OFF -DLIBUV_BUILD_SHARED=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" -DCMAKE_CXX_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_C_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_INSTALL_PREFIX=..\dist
+          if "${{ matrix.arch }}"=="x86" (
+            cmake .. -A Win32 -DBUILD_TESTING=OFF -DLIBUV_BUILD_SHARED=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" -DCMAKE_CXX_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_C_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_INSTALL_PREFIX=..\dist
+          ) else (
+            cmake .. -A x64 -DBUILD_TESTING=OFF -DLIBUV_BUILD_SHARED=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" -DCMAKE_CXX_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_C_FLAGS="/D_WIN32_WINNT=0x0601" -DCMAKE_INSTALL_PREFIX=..\dist
+          )
           cmake --build . --config Release --target install
 
       - name: Upload libuv Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libuv-windows
+          name: libuv-windows-${{ matrix.arch }}
           path: libuv/dist
           retention-days: 1
 
@@ -76,6 +95,6 @@ jobs:
     uses: srcdslab/ci-workflows/.github/workflows/shared_build_release_am_extension.yml@v1
     needs: [build-libuv-linux, build-libuv-windows]
     with:
-      sdks: "sdk2013"
+      sdks: "css"
       artifact-path: "libuv/dist"
       submodules: "recursive"

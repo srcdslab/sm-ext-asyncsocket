@@ -39,10 +39,10 @@ for sdk_name in Extension.sdks:
                 'synchronization.lib',  # Fixes WaitOnAddress / WakeByAddressSingle
             ]
 
-            # Candidates where actions/download-artifact might unpack libuv.lib
+            win_arch_folder = 'libuv-windows-x86' if cxx.target.arch == 'x86' else 'libuv-windows-x64'
             win_candidates = [
+                os.path.join(libuv_root, 'dist', win_arch_folder, 'lib', 'libuv.lib'),
                 os.path.join(libuv_root, 'dist', 'lib', 'libuv.lib'),
-                os.path.join(libuv_root, 'dist', 'libuv-windows', 'lib', 'libuv.lib'),
                 os.path.join(libuv_root, 'dist', 'Release', 'libuv.lib'),
                 os.path.join(Extension.ext_root, 'libuv.lib'),
             ]
@@ -59,11 +59,11 @@ for sdk_name in Extension.sdks:
                 binary.compiler.linkflags += ['libuv.lib']
 
         elif cxx.target.platform == 'linux':
-            if cxx.target.arch == 'x86':
-                # Candidates where actions/download-artifact might unpack libuv.a
+            if cxx.target.arch in ('x86', 'x86_64', 'x64'):
+                linux_arch_folder = 'libuv-linux-x86' if cxx.target.arch == 'x86' else 'libuv-linux-x64'
                 linux_candidates = [
+                    os.path.join(libuv_root, 'dist', linux_arch_folder, 'lib', 'libuv.a'),
                     os.path.join(libuv_root, 'dist', 'lib', 'libuv.a'),
-                    os.path.join(libuv_root, 'dist', 'libuv-linux', 'lib', 'libuv.a'),
                     os.path.join(libuv_root, 'dist', '.libs', 'libuv.a'),
                     os.path.join(Extension.ext_root, 'libuv.a'),
                 ]
