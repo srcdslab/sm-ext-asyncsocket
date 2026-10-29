@@ -54,7 +54,7 @@ jobs:
           make install
 
       - name: Upload libuv Linux Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: libuv-linux-${{ matrix.arch }}
           path: libuv/dist
@@ -85,7 +85,7 @@ jobs:
           cmake --build . --config Release --target install
 
       - name: Upload libuv Windows Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: libuv-windows-${{ matrix.arch }}
           path: libuv/dist
