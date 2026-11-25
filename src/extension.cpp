@@ -759,8 +759,9 @@ cell_t Native_AsyncSocket_Write(IPluginContext *pContext, const cell_t *params)
 	else
 		buffer->len = strlen(data);
 
+	// Copy exactly len bytes: the plugin's buffer may end right after them.
 	buffer->base = (char *)malloc(buffer->len + 1);
-	memcpy(buffer->base, data, buffer->len + 1);
+	memcpy(buffer->base, data, buffer->len);
 	buffer->base[buffer->len] = 0;
 
 	CAsyncWrite *pWrite = (CAsyncWrite *)malloc(sizeof(CAsyncWrite));

@@ -89,7 +89,9 @@ void CAsyncSocketContext::OnData(char* data, ssize_t size)
 		return;
 
 	m_pDataCallback->PushCell(m_Handle);
-	m_pDataCallback->PushString(data);
+	// PushString stops at the first NUL byte: copy the whole buffer (plus the
+	// terminator UV_OnRead appends) so binary data reaches the plugin intact.
+	m_pDataCallback->PushStringEx(data, (size_t)size + 1, SM_PARAM_STRING_COPY | SM_PARAM_STRING_BINARY, 0);
 	m_pDataCallback->PushCell(size);
 	m_pDataCallback->Execute(NULL);
 }
