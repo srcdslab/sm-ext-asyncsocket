@@ -428,7 +428,17 @@ void UV_OnConnect(uv_connect_t *req, int status)
 
 	if(status < 0)
 	{
+		// Close the handle of the failed attempt, as the bind/listen error paths do, so
+		// the plugin can call Connect() again on this socket and the fd is not kept open.
+		uv_handle_t *pSocket = (uv_handle_t *)req->handle;
 		free(req);
+
+		if(pSocketContext->m_pSocket == (uv_tcp_t *)pSocket)
+			pSocketContext->m_pSocket = NULL;
+
+		if(!uv_is_closing(pSocket))
+			uv_close(pSocket, pSocket->close_cb);
+
 		UV_PushError(pSocketContext, status);
 		return;
 	}
@@ -690,6 +700,7 @@ cell_t Native_AsyncSocket_Connect(IPluginContext *pContext, const cell_t *params
 	char *address = NULL;
 	pContext->LocalToString(params[2], &address);
 
+	free(pSocketContext->m_pHost); // a retry after a failed lookup, bind or connect
 	pSocketContext->m_pHost = strdup(address);
 	pSocketContext->m_Port = params[3];
 	pSocketContext->m_Server = false;
@@ -724,6 +735,7 @@ cell_t Native_AsyncSocket_Listen(IPluginContext *pContext, const cell_t *params)
 	char *address = NULL;
 	pContext->LocalToString(params[2], &address);
 
+	free(pSocketContext->m_pHost); // a retry after a failed lookup, bind or connect
 	pSocketContext->m_pHost = strdup(address);
 	pSocketContext->m_Port = params[3];
 	pSocketContext->m_Server = true;
