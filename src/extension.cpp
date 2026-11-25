@@ -34,6 +34,7 @@
 #include "readerwriterqueue.h"
 #include <uv.h>
 #include <vector>
+#include <atomic>
 
 /**
  * @file extension.cpp
@@ -64,7 +65,8 @@ uv_thread_t g_UV_LoopThread;
 uv_async_t g_UV_AsyncAdded;
 moodycamel::ReaderWriterQueue<CAsyncAddJob> g_AsyncAddQueue;
 
-bool g_Running;
+// Read by the UV thread (UV_OnAsyncResolved) while the game thread clears it in SDK_OnUnload.
+std::atomic<bool> g_Running;
 AsyncSocket g_AsyncSocket;		/**< Global singleton for extension's main interface */
 
 SMEXT_LINK(&g_AsyncSocket);
@@ -545,13 +547,14 @@ void UV_OnAsyncResolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo 
 	// The lookup failed, was cancelled by UV_DeleteAsyncContext, or the plugin handle
 	// is gone and there is nothing left to connect. Note that uv_cancel() fails when
 	// the lookup is already running, so a cancelled teardown can still land here with
-	// any status.
-	if(status < 0 || pSocketContext->m_Deleted || pSocketContext->m_pSocket)
+	// any status. Once the extension is unloading (SDK_OnUnload runs the loop on the
+	// game thread until it is empty), a new socket would keep the loop alive forever.
+	if(status < 0 || pSocketContext->m_Deleted || pSocketContext->m_pSocket || !g_Running)
 	{
 		if(res)
 			uv_freeaddrinfo(res);
 
-		if(status < 0 && status != UV_ECANCELED && !pSocketContext->m_Deleted)
+		if(status < 0 && status != UV_ECANCELED && !pSocketContext->m_Deleted && g_Running)
 			UV_PushError(pSocketContext, status);
 
 		UV_ReleaseContext(pSocketContext);
